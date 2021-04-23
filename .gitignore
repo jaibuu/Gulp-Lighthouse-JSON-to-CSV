@@ -1,2 +1,4 @@
 node_modules
-./scr/*
+src/*
+out/*
+.DS_Store

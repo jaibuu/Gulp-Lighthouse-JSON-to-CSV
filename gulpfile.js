@@ -23,7 +23,7 @@ function defaultTask(cb) {
     //cherry-pick JSON attributes
     .pipe(jsonTransform(function(data, file) {
       return {
-        file: file.relative,
+        file: file.relative.split('/')[1].replace('.json', ''),
         directory: file.relative.split('/')[0],
         requestedUrl: data.requestedUrl,
         finalUrl: data.finalUrl,
@@ -48,9 +48,9 @@ function defaultTask(cb) {
         "CPU/Memory Power": data["environment.benchmarkIndex"],
         };
     }))
-    .pipe(gulp.dest('out_flat'))
+    // .pipe(gulp.dest('out_flat'))
     .pipe(json2csv())
-    .pipe(gulp.dest('out_flat_csv'))
+    // .pipe(gulp.dest('out_flat_csv'))
     .pipe(concat('merge'))
     .pipe(map(function(file, cb) {
 
