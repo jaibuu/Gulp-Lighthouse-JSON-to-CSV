@@ -5,14 +5,118 @@ const concat = require('gulp-concat');
 const map    = require('map-stream');
 const jsonTransform = require('gulp-json-transform');
 const rename = require('gulp-rename');
+// const mergeStream =   require('merge-stream');
+const eventStream = require('event-stream');
 
 var uniqueFilterFn = function(item, idx, all) {
   return idx === all.indexOf(item);
 };
 
+var linesContainingUrlAttribute = function(item, idx, all) {
+  return item.indexOf('.url":"http')>1;
+};
+
 var onlyodd = function(item, idx, all) {
   return idx % 2 == 1;
 };
+
+function issuesTask(cb) {
+
+  let table_of_issues = [];
+
+
+  var mainStream = gulp.src('src/*/*.json')
+    .pipe(gulpFlattenJson())
+    .pipe(gulp.dest('out_flat_json'));
+    
+    var streamOne = mainStream
+    .pipe(map(function(file, cb) {
+
+      // console.log('       pipe start');
+
+      // // convert file buffer into a string
+      var contents = file.contents.toString();
+    
+      // // split it by lines
+      var lines = contents.split(/,\"/);
+
+      console.log(lines.length + " lines found on " +  file.relative.split('/')[1].replace('.json', ''));
+    
+      // // apply the unique filter
+      var filteredLines = lines.filter(linesContainingUrlAttribute);
+    
+      // // join unique list into lines
+      var output = '';
+      if(filteredLines.length>1){
+        output = '{"' + filteredLines.join(',\n"') + '}';
+      } else {
+        output = '{}';
+      }
+    
+      // // convert string back into buffer
+      var buffer = Buffer.from(output, 'binary');
+    
+      // // replace the file contents
+      file.contents = buffer;
+    
+      // // continue
+      return cb(null, file);
+    }))
+    // .pipe(gulp.dest('out_flat_json_problem_urls'))
+    .pipe(jsonTransform(function(data, file) {
+    
+      let problemType;
+      let oldObject;
+
+
+      for (const [urlAttributeLine, urlValue] of Object.entries(data)){
+
+        //Cleaning up type of error in order to count them later, removing numbers in brakets, removing HEX values, removing words with numbers as suffix, and removing any number surounded by periods
+        problemType = urlAttributeLine.replace(/\[[0-9]+\]/g, '').replace(/\.[0-9A-F]+\./g, '.').replace(/\.[a-f]+[0-9]+\./g, '').replace(/\.[0-9]+\./g, '.');
+
+        oldObject = table_of_issues.find(({ resourceURL }) => resourceURL === urlValue);
+
+        if(oldObject){
+          oldObject.count++;
+        } else {
+
+          table_of_issues.push({
+            resourceURL: urlValue,
+            problemType: problemType,
+            count: 1,
+            file: file.relative.split('/')[1].replace('.json', ''),
+            directory: file.relative.split('/')[0],
+          });
+
+        }
+
+      }
+      return table_of_issues;
+    }))
+    // .pipe(jsonTransform(function(data, file) {
+    //   return {
+    //     resourceURL: file.relative.split('/')[1].replace('.json', ''),
+    //     problemType: file.relative.split('/')[0],
+    //     count: 5,
+    //     requestedUrl: data.requestedUrl,
+    //     finalUrl: data.finalUrl,
+    //   }
+    // }))
+    .on("finish", function () {
+      console.log("We're done with filling the array !");
+
+      streamOne.pipe(json2csv()).pipe(gulp.dest('out_issue'))
+    })
+
+
+    // var streamTwo = mainStream;
+    // var merged = eventStream.merge(streamOne, streamTwo);
+    
+
+    .pipe(gulp.dest('out_issues'))
+
+  cb();
+}
 
 function defaultTask(cb) {
   // place code for your default task here
@@ -252,3 +356,4 @@ function defaultTask(cb) {
 }
 
 exports.default = defaultTask
+exports.issues = issuesTask
