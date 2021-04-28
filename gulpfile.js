@@ -24,15 +24,12 @@ function issuesTask(cb) {
 
   let table_of_issues = [];
 
-
   var mainStream = gulp.src('src/*/*.json')
     .pipe(gulpFlattenJson())
     .pipe(gulp.dest('out_flat_json'));
     
     var streamOne = mainStream
     .pipe(map(function(file, cb) {
-
-      // console.log('       pipe start');
 
       // // convert file buffer into a string
       var contents = file.contents.toString();
@@ -65,16 +62,16 @@ function issuesTask(cb) {
     // .pipe(gulp.dest('out_flat_json_problem_urls'))
     .pipe(jsonTransform(function(data, file) {
     
-      let problemType;
+      let problemTypeValue;
       let oldObject;
 
 
       for (const [urlAttributeLine, urlValue] of Object.entries(data)){
 
         //Cleaning up type of error in order to count them later, removing numbers in brakets, removing HEX values, removing words with numbers as suffix, and removing any number surounded by periods
-        problemType = urlAttributeLine.replace(/\[[0-9]+\]/g, '').replace(/\.[0-9A-F]+\./g, '.').replace(/\.[a-f]+[0-9]+\./g, '').replace(/\.[0-9]+\./g, '.');
+        problemTypeValue = urlAttributeLine.replace(/\[[0-9]+\]/g, '').replace(/\.[0-9A-F]+\./g, '.').replace(/\.[a-f]+[0-9]+\./g, '').replace(/\.[0-9]+\./g, '.');
 
-        oldObject = table_of_issues.find(({ resourceURL }) => resourceURL === urlValue);
+        oldObject = table_of_issues.find(({ resourceURL, problemType }) => (resourceURL === urlValue && problemType === problemTypeValue));
 
         if(oldObject){
           oldObject.count++;
@@ -82,7 +79,7 @@ function issuesTask(cb) {
 
           table_of_issues.push({
             resourceURL: urlValue,
-            problemType: problemType,
+            problemType: problemTypeValue,
             count: 1,
             file: file.relative.split('/')[1].replace('.json', ''),
             directory: file.relative.split('/')[0],
@@ -93,25 +90,11 @@ function issuesTask(cb) {
       }
       return table_of_issues;
     }))
-    // .pipe(jsonTransform(function(data, file) {
-    //   return {
-    //     resourceURL: file.relative.split('/')[1].replace('.json', ''),
-    //     problemType: file.relative.split('/')[0],
-    //     count: 5,
-    //     requestedUrl: data.requestedUrl,
-    //     finalUrl: data.finalUrl,
-    //   }
-    // }))
+
     .on("finish", function () {
       console.log("We're done with filling the array !");
-
       streamOne.pipe(json2csv()).pipe(gulp.dest('out_issue'))
     })
-
-
-    // var streamTwo = mainStream;
-    // var merged = eventStream.merge(streamOne, streamTwo);
-    
 
     .pipe(gulp.dest('out_issues'))
 
@@ -315,8 +298,6 @@ function defaultTask(cb) {
         "categories.best-practices.score":data["categories.best-practices.score"],
         "categories.seo.score":data["categories.seo.score"],
         "categories.pwa.score":data["categories.pwa.score"],
-
-
         };
     }))
     // .pipe(gulp.dest('out_flat'))
